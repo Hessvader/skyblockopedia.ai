@@ -1,0 +1,1 @@
+# Skyblockopedia.ai
