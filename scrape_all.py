@@ -6,7 +6,7 @@ Run this ONCE on any machine with normal internet + Python 3. It walks every
 article on wiki.hypixel.net through the official MediaWiki API, strips the wiki
 markup down to clean plain text, and writes:
 
-    site/wiki_corpus.json     {"pages": {"Arthur": "clean text...", ...}}
+    wiki_corpus.json     {"pages": {"Arthur": "clean text...", ...}}
 
 The backend (site/api/chat.js) loads this file and instantly retrieves the most
 relevant pages for each question — so the AI answers from the real wiki with no
@@ -34,7 +34,7 @@ import time
 import requests
 
 API = "https://wiki.hypixel.net/api.php"
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "site", "wiki_corpus.json")
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wiki_corpus.json")
 UA = "Skyblockopedia-scraper/1.0 (educational; contact via app)"
 # Namespaces worth pulling: 0 = articles, 10 = Template (holds NPC/<id> coord data).
 NAMESPACES = [0, 10]
