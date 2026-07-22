@@ -1,0 +1,41 @@
+# Weekly full-wiki re-scrape. Runs on GitHub's servers (which have internet),
+# rebuilds site/wiki_corpus.json, and commits it — Vercel then auto-redeploys.
+# You can also run it on demand from the Actions tab (workflow_dispatch).
+name: Refresh wiki corpus
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"      # every Monday 07:00 UTC
+  workflow_dispatch: {}       # manual "Run workflow" button
+
+permissions:
+  contents: write             # allow committing the updated corpus
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install requests
+
+      - name: Scrape the wiki
+        run: python scrape_all.py --refresh
+
+      - name: Commit updated corpus
+        run: |
+          git config user.name  "wiki-scraper-bot"
+          git config user.email "actions@github.com"
+          git add site/wiki_corpus.json
+          if git diff --cached --quiet; then
+            echo "No changes in the wiki this week."
+          else
+            git commit -m "chore: refresh wiki corpus ($(date -u +%Y-%m-%d))"
+            git push
+          fi
