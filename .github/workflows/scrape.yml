@@ -32,7 +32,7 @@ jobs:
         run: |
           git config user.name  "wiki-scraper-bot"
           git config user.email "actions@github.com"
-          git add site/wiki_corpus.json
+          git add wiki_corpus.json
           if git diff --cached --quiet; then
             echo "No changes in the wiki this week."
           else
