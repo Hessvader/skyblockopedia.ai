@@ -21,7 +21,7 @@ import fs from "fs";
 import path from "path";
 
 const EMBEDDED_GROQ = process.env.GROQ_API_KEY || ""; // key comes from the Vercel env var GROQ_API_KEY (never hardcoded/committed)
-const WIKI_API = "https://wiki.hypixel.net/api.php";
+const WIKI_API = "https://hypixel-skyblock.fandom.com/api.php";
 
 // ---- local index (names + coordinates) ----
 let NPC_CACHE = null;
@@ -220,7 +220,7 @@ export default async function handler(req, res) {
     try { reply = await primary(); }
     catch (e) { console.error("primary provider failed, using free fallback:", e.message); reply = await freeFallback(); }
 
-    if (sources && sources.length) reply += "\n\nSources: " + sources.map(t => "[" + t + "](https://wiki.hypixel.net/" + encodeURIComponent(t.replace(/ /g, "_")) + ")").join(" · ");
+        if (sources && sources.length) reply += "\n\nSources: " + sources.map(t => "[" + t + "](https://hypixel-skyblock.fandom.com/wiki/" + encodeURIComponent(t.replace(/ /g, "_")) + ")").join(" · ");
     return res.status(200).json({ reply });
   } catch (e) {
     return res.status(502).json({ error: String(e.message || e) });
