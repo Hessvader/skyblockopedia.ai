@@ -3,7 +3,7 @@
 scrape_all.py — download the ENTIRE Hypixel SkyBlock wiki into one corpus file.
 
 Run this ONCE on any machine with normal internet + Python 3. It walks every
-article on wiki.hypixel.net through the official MediaWiki API, strips the wiki
+article on hypixel-skyblock.fandom.com through the official MediaWiki API, strips the wiki
 markup down to clean plain text, and writes:
 
     wiki_corpus.json     {"pages": {"Arthur": "clean text...", ...}}
@@ -33,7 +33,7 @@ import time
 
 import requests
 
-API = "https://wiki.hypixel.net/api.php"
+API = "https://hypixel-skyblock.fandom.com/api.php"
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wiki_corpus.json")
 UA = "Skyblockopedia-scraper/1.0 (educational; contact via app)"
 # Namespaces worth pulling: 0 = articles, 10 = Template (holds NPC/<id> coord data).
