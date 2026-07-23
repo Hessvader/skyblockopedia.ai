@@ -71,12 +71,13 @@ function retrieveNpcs(ts, limit = 20) {
 }
 
 // Full-text retrieval over the scraped corpus
-function retrieveCorpus(ts, limit = 4) {
+function retrieveCorpus(ts, qLow, limit = 8) {
   const corpus = loadCorpus();
   if (!corpus || !ts.length) return [];
   return corpus.map(p => {
     let s = 0;
     const tl = p.title.toLowerCase();
+    if (qLow && tl.length >= 4 && qLow.indexOf(tl) >= 0) s += 60;
     for (const t of ts) {
       if (tl === t) s += 40;
       else if (tl.includes(t)) s += 10;
@@ -133,7 +134,8 @@ async function buildContext(messages) {
     return `- [${(n.type || "npc").toUpperCase()}] ${n.name} | area: ${n.area || "?"}${c} | ${n.description || ""}`;
   }).join("\n");
 
-  let articles = retrieveCorpus(ts, 6);
+  const qLow = (messages.filter(m => m.role === "user").slice(-1)[0]?.content || "").toLowerCase();
+  let articles = retrieveCorpus(ts, qLow, 8);
   // If the offline corpus isn't built (or missed), fall back to a live wiki lookup.
   if (articles.length < 3) {
     const q = messages.filter(m => m.role === "user").slice(-1)[0]?.content || "";
