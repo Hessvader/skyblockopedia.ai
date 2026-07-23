@@ -139,11 +139,21 @@ document.addEventListener('DOMContentLoaded',function(){var b=document.getElemen
     #backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:35;opacity:0;pointer-events:none;transition:opacity .2s}
     body.nav-open #backdrop{display:block;opacity:1;pointer-events:auto}
   }
+  .sb-tab{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 12px;border-radius:12px;border:1px solid var(--border-strong);background:var(--accent-soft);color:var(--accent);cursor:pointer;font-size:14px;font-weight:500;margin-bottom:10px;transition:.15s}
+  .sb-tab:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .sb-tab .ci{font-size:15px}
+  .cbtns{display:flex;flex-direction:column;gap:8px;max-width:360px}
+  .cbtn{text-align:left;padding:11px 14px;border-radius:10px;border:1px solid var(--border-strong);background:var(--panel);color:var(--text);cursor:pointer;font-size:14px;transition:.15s}
+  .cbtn:hover{border-color:var(--accent);color:var(--accent)}
+  .cbtn.sel{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .cmailwrap{margin-top:12px}
+  .cmail{width:100%;max-width:360px;padding:10px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--panel);color:var(--text);font-size:14px;outline:none}
+  .cmail:focus{border-color:var(--accent)}
 </style>
 </head>
 <body>
   <aside id="sidebar">
-    <div class="sb-top"><button id="newchat" class="sb-new"><i>+</i> New chat</button></div>
+    <div class="sb-top"><button id="contact" class="sb-tab"><span class="ci">&#9993;</span> Contact &amp; feedback</button><button id="newchat" class="sb-new"><i>+</i> New chat</button></div>
     <div id="chatlist" class="sb-list"></div>
     <div class="sb-foot">Chats are saved on this device.</div>
   </aside>
@@ -176,6 +186,7 @@ document.addEventListener('DOMContentLoaded',function(){var b=document.getElemen
     <div class="composer">
       <textarea id="input" rows="1" placeholder="Ask about any NPC, item, boss, or mechanic…" autofocus></textarea>
       <button id="send" title="Send" aria-label="Send">&#8593;</button>
+      <input id="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:0;height:0;opacity:0">
     </div>
     <div class="foot">Skyblockopedia can make mistakes. Data from the Hypixel SkyBlock Wiki.</div>
   </div>
@@ -203,7 +214,7 @@ function offline(history){const users=history.filter(m=>m.role==="user").map(m=>
  let{name,pronoun}=nameFrom(q);if(pronoun||!name)name=last||name;const hits=name?findNpc(name):[];
  if(hits.length)return describeNpc(hits[0]);
  for(const d of DOCS){if(q.toLowerCase().includes(d.title.toLowerCase().split(" ")[0]))return d.content;}
- return "I don't have information on that yet. Try an NPC name like \"Arthur\", \"Maddox\", or \"Sirius\".";}
+ return "I don't have information on that.";}
 
 /* main: call our own backend (which holds the key) */
 async function aiAnswer(history){
@@ -226,6 +237,7 @@ function addRow(role,text){if(welcome)welcome.style.display="none";
  const msg=document.createElement("div");msg.className="msg";renderMsg(msg,text);
  if(role!=="user")inner.appendChild(av);inner.appendChild(msg);row.appendChild(inner);scroll.appendChild(row);scroll.scrollTop=scroll.scrollHeight;return msg;}
 async function submit(text){text=(text||"").trim();if(!text)return;
+ if(contactMode){return sendContact(text);}
  addRow("user",text);history.push({role:"user",content:text});
  input.value="";input.style.height="auto";send.disabled=true;
  const typing=addRow("bot","Thinking...");
@@ -248,13 +260,22 @@ function saveChats(){lsSet(LS_CHATS,chats);}
 function persist(){if(!history.length)return;if(!current){current=uid();chats.unshift({id:current,title:titleOf(history),msgs:history.slice(),ts:Date.now()});localStorage.setItem(LS_CUR,current);}else{var c=null;for(var i=0;i<chats.length;i++)if(chats[i].id===current){c=chats[i];break;}if(!c){c={id:current};chats.unshift(c);}c.title=titleOf(history);c.msgs=history.slice();c.ts=Date.now();}saveChats();renderList();}
 function renderList(){if(!chats.length){listEl.innerHTML='<div class="sb-empty">No chats yet.<br>Ask something to start one.</div>';return;}listEl.innerHTML=chats.map(function(c){return '<div class="sb-item'+(c.id===current?" active":"")+'" data-id="'+c.id+'"><span class="t">'+esc(c.title)+'</span><button class="sb-del" data-del="'+c.id+'" title="Delete chat" aria-label="Delete chat">&#215;</button></div>';}).join("");}
 function clearRows(){var rs=scroll.querySelectorAll(".row");for(var i=0;i<rs.length;i++)rs[i].remove();}
-function loadChat(id){var c=null;for(var i=0;i<chats.length;i++)if(chats[i].id===id){c=chats[i];break;}if(!c)return;current=id;localStorage.setItem(LS_CUR,current);history.length=0;clearRows();if(welcome)welcome.style.display="none";c.msgs.forEach(function(m){history.push({role:m.role,content:m.content});addRow(m.role,m.content);});renderList();if(window.innerWidth<=720)setNav(false);}
-function newChat(){current=null;localStorage.removeItem(LS_CUR);history.length=0;clearRows();if(welcome)welcome.style.display="";if(input){input.value="";input.focus();}renderList();if(window.innerWidth<=720)setNav(false);}
+function loadChat(id){exitContact();var c=null;for(var i=0;i<chats.length;i++)if(chats[i].id===id){c=chats[i];break;}if(!c)return;current=id;localStorage.setItem(LS_CUR,current);history.length=0;clearRows();if(welcome)welcome.style.display="none";c.msgs.forEach(function(m){history.push({role:m.role,content:m.content});addRow(m.role,m.content);});renderList();if(window.innerWidth<=720)setNav(false);}
+function newChat(){exitContact();current=null;localStorage.removeItem(LS_CUR);history.length=0;clearRows();if(welcome)welcome.style.display="";if(input){input.value="";input.focus();}renderList();if(window.innerWidth<=720)setNav(false);}
 function setNav(open){document.body.classList.toggle("nav-open",open);lsSet(LS_NAV,open?1:0);}
 listEl.addEventListener("click",function(e){var del=e.target.closest(".sb-del");if(del){e.stopPropagation();var id=del.getAttribute("data-del");chats=chats.filter(function(x){return x.id!==id;});saveChats();if(current===id)newChat();else renderList();return;}var it=e.target.closest(".sb-item");if(it)loadChat(it.getAttribute("data-id"));});
 document.getElementById("newchat").addEventListener("click",newChat);
 document.getElementById("menu").addEventListener("click",function(){setNav(!document.body.classList.contains("nav-open"));});
 document.getElementById("backdrop").addEventListener("click",function(){setNav(false);});
 (function(){var saved=lsGet(LS_NAV,null);setNav(saved===null?(window.innerWidth>720):!!saved);if(current){var c=null;for(var i=0;i<chats.length;i++)if(chats[i].id===current){c=chats[i];break;}if(c&&c.msgs&&c.msgs.length){if(welcome)welcome.style.display="none";c.msgs.forEach(function(m){history.push({role:m.role,content:m.content});addRow(m.role,m.content);});}else{current=null;}}renderList();})();
+var contactMode=false,contactCat=null,contactStart=0;
+function exitContact(){contactMode=false;contactCat=null;if(input){input.disabled=false;input.placeholder="Ask about any NPC, item, boss, or mechanic…";}}
+function catLabel(c){return c==="advertise"?"Advertising":c==="question"?"Question":"Feedback / report a problem";}
+function contactRow(html){var row=document.createElement("div");row.className="row bot";var inner=document.createElement("div");inner.className="row-inner";var av=document.createElement("div");av.className="avatar";av.innerHTML=ISLAND;var msg=document.createElement("div");msg.className="msg";msg.innerHTML=html;inner.appendChild(av);inner.appendChild(msg);row.appendChild(inner);scroll.appendChild(row);scroll.scrollTop=scroll.scrollHeight;return msg;}
+function openContact(){contactMode=true;contactCat=null;current=null;localStorage.removeItem(LS_CUR);history.length=0;clearRows();if(welcome)welcome.style.display="none";renderList();contactRow('Contact &amp; feedback — pick a topic to get started:<div class="cbtns" style="margin-top:10px"><button class="cbtn" data-cat="advertise">Advertising — I want to advertise here</button><button class="cbtn" data-cat="question">Question</button><button class="cbtn" data-cat="feedback">Feedback / report a problem</button></div>');contactStart=Date.now();if(input){input.value="";input.disabled=true;input.placeholder="Pick a topic above first…";}if(window.innerWidth<=720)setNav(false);}
+function chooseCat(cat,btn){contactCat=cat;var wrap=btn.parentNode;var bs=wrap.querySelectorAll(".cbtn");for(var i=0;i<bs.length;i++)bs[i].classList.toggle("sel",bs[i]===btn);contactRow('You picked <b>'+esc(catLabel(cat))+'</b>. Type your message below'+(cat==="advertise"?", and add the best email to reach you":"")+', then press send.<div class="cmailwrap"><input id="cemail" type="email" class="cmail" placeholder="Your email (optional, so we can reply)"></div>');if(input){input.disabled=false;input.placeholder="Type your message…";input.focus();}contactStart=Date.now();}
+async function sendContact(text){if(!contactCat){contactRow("Please pick a topic first.");return;}addRow("user",text);input.value="";input.style.height="auto";send.disabled=true;var em=document.getElementById("cemail");var email=em?em.value.trim():"";var hpEl=document.getElementById("hp");var hp=hpEl?hpEl.value:"";var typing=contactRow("Sending…");try{var r=await fetch("/api/contact",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({category:contactCat,message:text,email:email,hp:hp,t:Date.now()-contactStart})});var d={};try{d=await r.json();}catch(e){}if(!r.ok){typing.textContent="⚠️ "+(d.error||("Error "+r.status));}else if(d.queued){typing.textContent="Thanks! We’ve hit today’s message limit, so yours is queued and will be delivered tomorrow.";exitContact();history.length=0;}else{typing.textContent="Thanks — your message was sent to the team"+(email?(", we’ll reply to "+email):"")+". Start a New chat anytime.";exitContact();history.length=0;}}catch(e){typing.textContent="⚠️ Couldn’t send right now. Please try again later.";}send.disabled=false;scroll.scrollTop=scroll.scrollHeight;}
+document.getElementById("contact").addEventListener("click",openContact);
+scroll.addEventListener("click",function(e){var b=e.target.closest(".cbtn");if(b&&contactMode)chooseCat(b.getAttribute("data-cat"),b);});
 </script>
 </body></html>
