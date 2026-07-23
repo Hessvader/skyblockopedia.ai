@@ -91,6 +91,6 @@ export default async function handler(req, res) {
       categories,
     });
   } catch (e) {
-    return res.status(502).json({ error: "Couldn't calculate net worth right now. Please try again.", detail: String((e && e.message) || e).slice(0,300) });
+    return res.status(502).json({ error: "Couldn't calculate net worth right now. Please try again." });
   }
 }
