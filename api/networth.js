@@ -5,6 +5,26 @@
 
 const HYPIXEL = "https://api.hypixel.net/v2";
 
+// skyhelper-networth tries to write a `.itemsBackup.json` cache inside its own
+// node_modules folder, which is a read-only filesystem on Vercel (EROFS). Redirect
+// that one write to /tmp (the only writable path) so item fetching succeeds.
+import fs from "fs";
+if (!fs.__nwPatched) {
+  const _origWrite = fs.writeFileSync;
+  fs.writeFileSync = function (p, ...args) {
+    try {
+      if (typeof p === "string" && p.indexOf(".itemsBackup.json") >= 0) {
+        return _origWrite.call(fs, "/tmp/.itemsBackup.json", ...args);
+      }
+      return _origWrite.call(fs, p, ...args);
+    } catch (e) {
+      if (typeof p === "string" && p.indexOf(".itemsBackup.json") >= 0) return; // never fatal
+      throw e;
+    }
+  };
+  fs.__nwPatched = true;
+}
+
 async function resolveUuid(name) {
   try {
     const r = await fetch("https://api.mojang.com/users/profiles/minecraft/" + encodeURIComponent(name));
