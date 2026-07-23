@@ -4,6 +4,12 @@
 // doesn't own (accounting for upgrade families + duplicates) and prices the cheapest.
 
 import TALISMANS from "./_talismans.js";
+import { MP_BY_RARITY } from "./_gamedata.js";
+
+// Magic power gained by recombobulating an accessory of a given base rarity (+1 tier).
+// legendary->mythic excluded (only a handful of accessories support it).
+const RECOMB_DELTA = { COMMON: 2, UNCOMMON: 3, RARE: 4, EPIC: 4 };
+const RECOMB_RARITIES = ["COMMON", "UNCOMMON", "RARE", "EPIC"];
 
 // skyhelper-networth writes an items cache to its own (read-only on Vercel) folder.
 // Redirect that write to /tmp so item fetching succeeds.
@@ -95,12 +101,25 @@ export default async function handler(req, res) {
     if (!ProfileNetworthCalculator) throw new Error("networth library did not load");
 
     const calc = new ProfileNetworthCalculator(member, null, (profile.banking && profile.banking.balance) || 0);
-    const nw = await calc.getNetworth();
+    const nw = await calc.getNetworth({ includeItemData: true });
 
     if (nw.noInventory) return res.status(409).json({ error: who.name + " has their inventory API turned off, so their accessories can't be read. Turn it on in SkyBlock Settings → API Settings." });
 
     const accessories = (nw.types && nw.types.accessories && nw.types.accessories.items) || [];
     const owned = accessories.map((i) => (i && i.id ? String(i.id).toUpperCase() : null)).filter(Boolean);
+
+    // Count owned, NOT-yet-recombobulated accessories by base rarity (for recomb suggestions).
+    const recombCounts = { COMMON: 0, UNCOMMON: 0, RARE: 0, EPIC: 0 };
+    for (const it of accessories) {
+      if (!it || !it.id) continue;
+      const meta = TALISMANS.talismans[String(it.id).toUpperCase()];
+      const rarity = meta && meta.rarity ? meta.rarity.toUpperCase() : null;
+      if (!rarity || !(rarity in recombCounts)) continue;
+      const raw = it.item || it.itemData || {};
+      const ea = (raw && (raw.tag ? raw.tag.ExtraAttributes : raw.ExtraAttributes)) || {};
+      const recombed = (ea.rarity_upgrades || 0) > 0;
+      if (!recombed) recombCounts[rarity] += 1;
+    }
 
     const missing = getMissing(owned, "");
     const upgrades = getMissing(owned, "max");
@@ -112,19 +131,42 @@ export default async function handler(req, res) {
       const p = prices[id] ?? prices[String(id).toUpperCase()] ?? prices[String(id).toLowerCase()];
       return typeof p === "number" && p > 0 ? Math.round(p) : null;
     };
+    const mpOf = (rarity) => MP_BY_RARITY[String(rarity || "").toUpperCase()] || 0;
 
-    const withPrices = (arr) => arr.map((t) => ({ ...t, price: priceOf(t.id) }));
+    // Buyable missing accessories, valued by magic power per coin.
+    const buyRecs = [];
+    const unobtainable = [];
+    for (const t of missing) {
+      const price = priceOf(t.id);
+      const mp = mpOf(t.rarity);
+      if (price == null) { unobtainable.push({ id: t.id, name: t.name, rarity: t.rarity }); continue; }
+      buyRecs.push({ kind: "buy", id: t.id, name: t.name, rarity: t.rarity, mp, price, coinsPerMp: mp > 0 ? price / mp : Infinity });
+    }
 
-    let missingPriced = withPrices(missing);
-    const buyable = missingPriced.filter((t) => t.price != null).sort((a, b) => a.price - b.price);
-    const unobtainable = missingPriced.filter((t) => t.price == null);
-    const totalCost = buyable.reduce((s, t) => s + t.price, 0);
+    // Recombobulator suggestions, valued the same way.
+    const recombPrice = priceOf("RECOMBOBULATOR_3000");
+    const recombRecs = [];
+    if (recombPrice) {
+      for (const r of RECOMB_RARITIES) {
+        const count = recombCounts[r];
+        if (count > 0) {
+          const delta = RECOMB_DELTA[r];
+          recombRecs.push({ kind: "recomb", rarity: r.charAt(0) + r.slice(1).toLowerCase(), count, mp: delta, price: recombPrice, coinsPerMp: recombPrice / delta });
+        }
+      }
+    }
+
+    // Merge and order by cheapest magic power per coin (best value first).
+    const recommendations = buyRecs.concat(recombRecs).sort((a, b) => a.coinsPerMp - b.coinsPerMp)
+      .map((r) => ({ ...r, coinsPerMp: Math.round(r.coinsPerMp) }));
+
+    const totalCost = buyRecs.reduce((s, t) => s + t.price, 0);
 
     return res.status(200).json({
       name: who.name,
       profile: profile.cute_name || null,
       missingCount: missing.length,
-      buyable,
+      recommendations,
       unobtainable,
       totalCost,
       upgradesCount: upgrades.length,
