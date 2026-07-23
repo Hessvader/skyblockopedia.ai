@@ -83,11 +83,10 @@ function computePets(member) {
 function computeMinions(profile, member) {
   const set = new Set();
   const members = profile.members || {};
+  const paths = (m) => [m?.crafted_generators, m?.player_data?.crafted_generators, m?.player_stats?.crafted_generators];
   for (const uuid of Object.keys(members)) {
-    const g = members[uuid]?.crafted_generators || [];
-    for (const s of g) set.add(String(s).replace(/_\d+$/, ""));
+    for (const g of paths(members[uuid])) if (Array.isArray(g)) for (const s of g) set.add(String(s).replace(/_\d+$/, ""));
   }
-  if (member?.crafted_generators) for (const s of member.crafted_generators) set.add(String(s).replace(/_\d+$/, ""));
   const unique = set.size;
   return { uniqueMinions: unique, minionSlots: minionSlots(unique) };
 }
@@ -144,6 +143,11 @@ export default async function handler(req, res) {
 
     const base = { name: who.name, profile: profile.cute_name || null, stat };
     let data = {};
+
+    if (stat === "_debug") {
+      const mk = Object.keys(member);
+      return res.status(200).json({ memberKeys: mk, hasCrafted: Array.isArray(member.crafted_generators), craftedLen: (member.crafted_generators || []).length, playerDataKeys: Object.keys(member.player_data || {}) });
+    }
 
     if (stat === "skills") data = computeSkills(member);
     else if (stat === "slayer" || stat === "slayers") data = computeSlayer(member);
