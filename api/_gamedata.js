@@ -3,8 +3,8 @@
 // and Senither's hypixel-skyblock-facade. Used by the player-stats commands.
 
 export const MAX_LEVELS = {
-  farming: 60, mining: 60, combat: 60, foraging: 50, fishing: 50, enchanting: 60,
-  alchemy: 50, taming: 50, carpentry: 50, runecrafting: 25, social: 25, dungeoneering: 50,
+  farming: 60, mining: 60, combat: 60, foraging: 54, fishing: 50, enchanting: 60,
+  alchemy: 50, taming: 50, carpentry: 50, hunting: 25, runecrafting: 25, social: 25, dungeoneering: 50,
 };
 export const WEIGHT_MAX_LEVELS = {
   farming: 60, mining: 60, combat: 60, foraging: 60, fishing: 60, enchanting: 60,
@@ -165,3 +165,18 @@ export function fetchurToday(day) { return FETCHUR[(day - 1) % 13]; }
 
 // SkyBlock magic power per accessory rarity (approx, for the talismans command).
 export const MP_BY_RARITY = { COMMON: 3, UNCOMMON: 5, RARE: 8, EPIC: 12, LEGENDARY: 16, MYTHIC: 22, SPECIAL: 3, VERY_SPECIAL: 5 };
+
+// Dolphin (sea creatures killed) + Rock (ores mined) pet milestones — SkyHelper's `milestones` command.
+export const MILESTONES = {
+  dolphin: [250, 1000, 2500, 5000, 10000],
+  rock: [2500, 7500, 20000, 100000, 250000],
+  rarities: ["common", "uncommon", "rare", "epic", "legendary"],
+};
+export function milestoneTier(pet, stat) {
+  const arr = MILESTONES[pet] || [];
+  const s = stat || 0;
+  let level = 0;
+  for (let i = 0; i < 5; i++) if (arr[i] < s) level = i + 1;
+  const next = level < 5 ? arr[level] : 0;
+  return { level, stat: s, rarity: level > 0 ? MILESTONES.rarities[level - 1] : "none", next, toNext: next ? next - s : 0 };
+}

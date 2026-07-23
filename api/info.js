@@ -49,7 +49,7 @@ export default async function handler(req, res) {
   try {
     if (cmd === "fetchur") {
       const day = new Date().getUTCDate();
-      return res.status(200).json({ cmd, item: fetchurToday(day), note: "Fetchur wants a new item each day. He's in the Mountain (Hub)." });
+      return res.status(200).json({ cmd, item: fetchurToday(day), note: "Fetchur wants a new item each day. He's in the Mountain (Hub).", tip: "Grab today's item cheaply from the Bazaar or Auction House, then hand it in — Fetchur gives useful rewards like Bags of Cash, Pocket Sacks and Enchanted Books." });
     }
 
     if (cmd === "time" || cmd === "events") {
@@ -65,11 +65,12 @@ export default async function handler(req, res) {
           "Spooky Festival — Autumn 29 (Year event)",
           "Season of Jerry / Jerry's Workshop — Late Winter (December)",
         ],
+        tip: "1 SkyBlock day = 20 real minutes, and 1 SkyBlock year ≈ 5.2 real days. Catch the Dark Auction each hour for rare items like the Midas Staff.",
       });
     }
 
     if (cmd === "kat") {
-      return res.status(200).json({ cmd, upgrades: KAT, note: "Kat (Hub) upgrades a pet's rarity. Higher-rarity upgrades also need a specific item that varies per pet." });
+      return res.status(200).json({ cmd, upgrades: KAT, note: "Kat (Hub) upgrades a pet's rarity. Higher-rarity upgrades also need a specific item that varies per pet.", tip: "Feed Kat Flowers or use a Kat Flower Charm to cut the wait, and buy the required item before starting so the upgrade begins immediately." });
     }
 
     if (cmd === "status") {
@@ -82,7 +83,7 @@ export default async function handler(req, res) {
       if (!r.ok) return res.status(502).json({ error: "Hypixel API error (" + r.status + ")." });
       const d = await r.json();
       const s = d.session || {};
-      return res.status(200).json({ cmd, name: who.name, online: !!s.online, game: s.gameType ? String(s.gameType) : null, mode: s.mode || null });
+      return res.status(200).json({ cmd, name: who.name, online: !!s.online, game: s.gameType ? String(s.gameType) : null, mode: s.mode || null, tip: s.online ? (who.name + " is online right now" + (s.mode ? " in " + s.mode : "") + ". Status only shows if their API is public.") : (who.name + " is offline. This reflects their last known Hypixel session.") });
     }
 
     if (cmd === "playercount" || cmd === "sbplayercount") {
@@ -92,7 +93,7 @@ export default async function handler(req, res) {
       if (!r.ok) return res.status(502).json({ error: "Couldn't fetch player counts right now." });
       const d = await r.json();
       const sb = (d.games && d.games.SKYBLOCK) || {};
-      return res.status(200).json({ cmd: "playercount", skyblockPlayers: sb.players || 0, totalPlayers: d.playerCount || null });
+      return res.status(200).json({ cmd: "playercount", skyblockPlayers: sb.players || 0, totalPlayers: d.playerCount || null, tip: "This is a live count. SkyBlock usually peaks on weekends and right after big updates — handy for judging Bazaar/Auction activity." });
     }
 
     return res.status(400).json({ error: "Unknown info command." });

@@ -42,12 +42,16 @@ export default async function handler(req, res) {
       }
       if (!id) return res.status(404).json({ error: "\"" + arg + "\" isn't on the Bazaar (it may be an Auction House item — try price)." });
       const q = products[id].quick_status || {};
+      const bp = q.buyPrice || 0, sp = q.sellPrice || 0;
+      const margin = bp - sp;
+      const pct = sp > 0 ? (margin / sp) * 100 : 0;
       return res.status(200).json({
         cmd: "bazaar", id, name: id.replace(/_/g, " "),
-        buyPrice: Math.round((q.buyPrice || 0) * 10) / 10,
-        sellPrice: Math.round((q.sellPrice || 0) * 10) / 10,
+        buyPrice: Math.round(bp * 10) / 10,
+        sellPrice: Math.round(sp * 10) / 10,
         buyVolume: q.buyVolume || 0, sellVolume: q.sellVolume || 0,
         buyOrders: q.buyOrders || 0, sellOrders: q.sellOrders || 0,
+        tip: "Flip margin: " + Math.round(margin) + " coins (" + pct.toFixed(1) + "%) between instant-buy and instant-sell. Use buy & sell orders to capture it — remember the ~1.25% order tax and that high volume fills faster.",
       });
     }
 
@@ -71,7 +75,7 @@ export default async function handler(req, res) {
         if (br.ok) { const bd = await br.json(); const p = (bd.products || {})[want]; if (p) { id = want; price = p.quick_status && p.quick_status.buyPrice; } }
       }
       if (price == null) return res.status(404).json({ error: "No price found for \"" + arg + "\"." });
-      return res.status(200).json({ cmd: "price", id: String(id).toUpperCase(), name: String(id).replace(/_/g, " "), price: Math.round(price) });
+      return res.status(200).json({ cmd: "price", id: String(id).toUpperCase(), name: String(id).replace(/_/g, " "), price: Math.round(price), tip: "Lowest live market price (Auction lowest BIN, or Bazaar for stackables). For Bazaar items, placing a buy order is often cheaper than instant-buy." });
     }
 
     return res.status(400).json({ error: "Unknown item command." });

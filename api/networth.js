@@ -81,6 +81,8 @@ export default async function handler(req, res) {
       .filter(x => x.total > 0)
       .sort((a, b) => b.total - a.total);
 
+    const topCat = categories[0];
+    const tip = topCat ? ("Most of " + who.name + "'s wealth is in " + topCat.name.replace(/_/g, " ") + ". Unsoftcapped shows value before soulbound/pet softcaps — the plain networth is what most trading is based on.") : "Networth counts inventory, pets, accessories, and more — turn on inventory API for a full picture.";
     return res.status(200).json({
       name: who.name,
       profile: profile.cute_name || null,
@@ -89,6 +91,7 @@ export default async function handler(req, res) {
       purse: Math.round(nw.purse || 0),
       bank: Math.round(nw.bank || 0),
       categories,
+      tip,
     });
   } catch (e) {
     return res.status(502).json({ error: "Couldn't calculate net worth right now. Please try again." });

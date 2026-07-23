@@ -2,7 +2,7 @@
 // per-player STATS commands.
 // GET /api/player?user=<IGN>&stat=<skills|dungeons|slayer|weight|pets|minions|collections|talismans|cakebag|stats>
 
-import { calcSkill, slayerLevel, petLevel, senitherWeight, getSkillExp, minionSlots, MP_BY_RARITY, SLAYER_XP } from "./_gamedata.js";
+import { calcSkill, slayerLevel, petLevel, senitherWeight, getSkillExp, minionSlots, MP_BY_RARITY, SLAYER_XP, MAX_LEVELS, MILESTONES, milestoneTier } from "./_gamedata.js";
 import TALISMANS from "./_talismans.js";
 
 import fs from "fs";
@@ -31,20 +31,28 @@ async function resolveUuid(name) {
   return null;
 }
 
+// Skill average uses the main (non-cosmetic, non-dungeon) skills. Hunting + Carpentry
+// are shown but kept out of the classic average, matching community tools.
 function computeSkills(member) {
-  const out = [];
+  const display = [...SKILLS, "hunting", "carpentry"];
   let sum = 0;
-  for (const s of SKILLS) { const r = calcSkill(s, getSkillExp(member, s)); out.push({ skill: titleCase(s), level: r.level, progress: round(r.levelWithProgress) }); sum += r.levelWithProgress; }
-  const extras = {};
-  for (const s of ["carpentry", "runecrafting", "social"]) extras[s] = calcSkill(s, getSkillExp(member, s)).level;
-  return { average: round(sum / SKILLS.length), skills: out, carpentry: extras.carpentry, runecrafting: extras.runecrafting, social: extras.social };
+  for (const s of SKILLS) sum += calcSkill(s, getSkillExp(member, s)).levelWithProgress;
+  const rows = display.map((s) => { const r = calcSkill(s, getSkillExp(member, s)); return { skill: titleCase(s), level: r.level, progress: round(r.levelWithProgress), max: MAX_LEVELS[s] }; });
+  const average = round(sum / SKILLS.length);
+  let low = null;
+  for (const r of rows) { if (!SKILLS.includes(r.skill.toLowerCase())) continue; if (r.level < r.max && (!low || r.progress < low.progress)) low = r; }
+  const tip = low ? ("Your lowest main skill is " + low.skill + " (level " + low.level + ") — leveling it raises your Skill Average the fastest.") : "All main skills maxed. Work on Catacombs and cosmetic skills next.";
+  return { average, skills: rows, tip };
 }
 
 function computeSlayer(member) {
   const sl = member?.slayer?.slayer_bosses || member?.slayer_bosses || {};
   const out = []; let total = 0;
   for (const b of SLAYERS) { const xp = sl?.[b]?.xp || 0; total += xp; out.push({ boss: SLAYER_NAMES[b], xp: Math.round(xp), level: slayerLevel(b, xp) }); }
-  return { totalXp: Math.round(total), bosses: out };
+  const withTier = out.filter((b) => SLAYER_XP[Object.keys(SLAYER_NAMES).find((k) => SLAYER_NAMES[k] === b.boss)]);
+  const lowest = out.slice().sort((a, b) => a.level - b.level)[0];
+  const tip = lowest ? ("Your lowest slayer is " + lowest.boss + " (level " + lowest.level + "). Slayer levels gate strong drops and armor — level it for a well-rounded build.") : "Start slayers at Maddox the Slayer in the Tavern.";
+  return { totalXp: Math.round(total), bosses: out, tip };
 }
 
 function computeDungeons(member) {
@@ -54,13 +62,15 @@ function computeDungeons(member) {
   const cataLevel = calcSkill("dungeoneering", cata.experience || 0);
   const classes = d?.player_classes || {};
   const classOut = {};
-  for (const c of ["healer", "mage", "berserk", "archer", "tank"]) classOut[titleCase(c)] = calcSkill("dungeoneering", classes?.[c]?.experience || 0).level;
+  let lowClass = null;
+  for (const c of ["healer", "mage", "berserk", "archer", "tank"]) { const lv = calcSkill("dungeoneering", classes?.[c]?.experience || 0).level; classOut[titleCase(c)] = lv; if (!lowClass || lv < lowClass.lv) lowClass = { name: titleCase(c), lv }; }
   const floors = {};
   const tc = cata.tier_completions || {};
   for (const k of Object.keys(tc)) floors[k] = tc[k];
   const mtc = master.tier_completions || {};
   const masterFloors = {};
   for (const k of Object.keys(mtc)) masterFloors[k] = mtc[k];
+  const tip = lowClass ? ("Play your lowest class (" + lowClass.name + ", level " + lowClass.lv + ") to balance your class average — every class level boosts your stats inside dungeons.") : "Run Catacombs floors to level up. Higher floors give far more XP.";
   return {
     catacombsLevel: cataLevel.level,
     catacombsProgress: round(cataLevel.levelWithProgress),
@@ -69,15 +79,17 @@ function computeDungeons(member) {
     floorCompletions: floors,
     masterFloorCompletions: masterFloors,
     secrets: member?.dungeons?.secrets || null,
+    tip,
   };
 }
 
 function computePets(member) {
   const pets = member?.pets_data?.pets || member?.pets || [];
   const list = pets.map((p) => ({ name: titleCase(p.type), rarity: titleCase(p.tier), level: petLevel(p.exp || 0, p.tier, p.type), held: p.heldItem ? titleCase(String(p.heldItem).replace(/^PET_ITEM_/, "")) : null }));
-  const order = { LEGENDARY: 5, MYTHIC: 6, EPIC: 4, RARE: 3, UNCOMMON: 2, COMMON: 1 };
   list.sort((a, b) => b.level - a.level);
-  return { count: list.length, pets: list.slice(0, 20) };
+  const top = list[0];
+  const tip = top ? ("Your best pet is " + top.name + " (" + top.rarity + " Lv" + top.level + "). Hold the right pet item (Textbook, Tier Boost, skill boosts) to squeeze out more value.") : "Get pets from the Pet menu — a good pet transforms your build.";
+  return { count: list.length, pets: list.slice(0, 20), tip };
 }
 
 function computeMinions(profile, member) {
@@ -88,15 +100,18 @@ function computeMinions(profile, member) {
   for (const uuid of Object.keys(members)) {
     for (const g of paths(members[uuid])) if (Array.isArray(g)) for (const s of g) { set.add(String(s)); types.add(String(s).replace(/_\d+$/, "")); }
   }
-  const uniqueCrafts = set.size; // unique minion tiers crafted — drives slot count
-  return { uniqueMinions: types.size, craftedTiers: uniqueCrafts, minionSlots: minionSlots(uniqueCrafts) };
+  const uniqueCrafts = set.size;
+  const slots = minionSlots(uniqueCrafts);
+  const tip = "You've crafted " + uniqueCrafts + " unique minion tiers → " + slots + " slots. Craft new minion types or tiers you don't have yet to unlock more slots.";
+  return { uniqueMinions: types.size, craftedTiers: uniqueCrafts, minionSlots: slots, tip };
 }
 
 function computeCollections(member) {
   const coll = member?.collection || {};
   const entries = Object.keys(coll).map((k) => ({ name: titleCase(k), amount: coll[k] })).sort((a, b) => b.amount - a.amount);
   const tiers = ((member?.unlocked_coll_tiers) || (member?.player_data?.unlocked_coll_tiers) || []).length;
-  return { collectionsWithProgress: entries.length, unlockedTiers: tiers, top: entries.slice(0, 15) };
+  const tip = "You've unlocked " + tiers + " collection tiers. Maxing collections unlocks new crafting recipes, minion tiers, and Bestiary progress.";
+  return { collectionsWithProgress: entries.length, unlockedTiers: tiers, top: entries.slice(0, 15), tip };
 }
 
 function computeStats(member) {
@@ -113,6 +128,7 @@ function computeStats(member) {
     senitherWeight: Math.round(w.total),
     skyblockLevel: sbLevel,
     fairySouls: fairies,
+    tip: "For detail on any area, try /skills, /dungeons, /slayer, /weight, /pets or /networth with this name.",
   };
 }
 
@@ -151,14 +167,22 @@ export default async function handler(req, res) {
     else if (stat === "pets") data = computePets(member);
     else if (stat === "minions") data = computeMinions(profile, member);
     else if (stat === "collections" || stat === "collection") data = computeCollections(member);
-    else if (stat === "weight") { const w = senitherWeight(member); data = { total: Math.round(w.total), skills: Math.round(w.skills), slayer: Math.round(w.slayer), dungeons: Math.round(w.dungeons), type: "Senither" }; }
+    else if (stat === "weight") {
+      const w = senitherWeight(member);
+      const parts = [["skills", w.skills], ["dungeons", w.dungeons], ["slayer", w.slayer]].sort((a, b) => b[1] - a[1]);
+      data = { total: Math.round(w.total), skills: Math.round(w.skills), slayer: Math.round(w.slayer), dungeons: Math.round(w.dungeons), type: "Senither", tip: "Most of your weight comes from " + parts[0][0] + ". Senither weight rewards maxed skills, high Catacombs, and slayer XP — and overflow XP past the cap still counts." };
+    }
     else if (stat === "milestones") {
-      let garden = null;
-      try { const gr = await fetch(HYPIXEL + "/skyblock/garden?profile=" + profile.profile_id, { headers: { "API-Key": key } }); if (gr.ok) { const gd = await gr.json(); garden = gd.garden; } } catch (e) {}
-      if (!garden) return res.status(200).json({ ...base, note: "No garden data available for this profile." });
-      const crops = garden.crop_milestones || {};
-      const cropList = Object.keys(crops).map((k) => ({ crop: titleCase(k), collected: crops[k] })).sort((a, b) => b.collected - a.collected);
-      data = { gardenExperience: Math.round(garden.garden_experience || 0), crops: cropList };
+      const ps = member?.player_stats || {};
+      const seaKilled = ps?.pets?.milestone?.sea_creatures_killed ?? ps?.pet_milestone_sea_creatures_killed ?? 0;
+      const oresMined = ps?.pets?.milestone?.ores_mined ?? ps?.pet_milestone_ores_mined ?? 0;
+      const dolphin = milestoneTier("dolphin", seaKilled);
+      const rock = milestoneTier("rock", oresMined);
+      data = {
+        dolphin: { rarity: titleCase(dolphin.rarity), tier: dolphin.level, seaCreaturesKilled: dolphin.stat, toNext: dolphin.toNext },
+        rock: { rarity: titleCase(rock.rarity), tier: rock.level, oresMined: rock.stat, toNext: rock.toNext },
+        tip: "The Dolphin pet gets stronger with sea creatures killed; the Rock pet with ores mined. Both cap at the Legendary milestone.",
+      };
     }
     else if (stat === "talismans" || stat === "cakebag") {
       const _nw = await import("skyhelper-networth");
@@ -172,18 +196,19 @@ export default async function handler(req, res) {
         for (const cat of Object.keys(nw.types || {})) {
           for (const it of (nw.types[cat].items || [])) {
             if (it && String(it.id).toUpperCase() === "NEW_YEAR_CAKE_BAG") {
-              const ea = (it.itemData && it.itemData.tag && it.itemData.tag.ExtraAttributes) || it.extraAttributes || {};
+              const raw = it.item || it.itemData || {};
+              const ea = (raw && (raw.tag ? raw.tag.ExtraAttributes : raw.ExtraAttributes)) || it.extraAttributes || {};
               if (ea.new_year_cake_bag_years) years = ea.new_year_cake_bag_years;
             }
           }
         }
-        if (!years) return res.status(200).json({ ...base, note: who.name + " has no New Year Cake Bag on this profile (or it couldn't be read)." });
+        if (!years) return res.status(200).json({ ...base, note: who.name + " has no New Year Cake Bag on this profile (or it couldn't be read).", tip: "The New Year Cake Bag is bought from the Auction House. Store one New Year Cake per year in it for a permanent Health boost." });
         years = years.slice().sort((a, b) => a - b);
         const maxYear = years[years.length - 1];
         const owned = new Set(years);
         const missing = [];
         for (let y = 1; y <= maxYear; y++) if (!owned.has(y)) missing.push(y);
-        data = { cakesOwned: years.length, highestYear: maxYear, missingYears: missing };
+        data = { cakesOwned: years.length, highestYear: maxYear, missingYears: missing, tip: missing.length ? "Buy the missing New Year Cakes from the Auction House to fill the gaps — each cake adds permanent Health." : "Complete set through Year " + maxYear + " — every cake so far is stored." };
       } else {
         const accessories = (nw.types && nw.types.accessories && nw.types.accessories.items) || [];
         const owned = accessories.map((i) => (i && i.id ? String(i.id).toUpperCase() : null)).filter(Boolean);
@@ -194,9 +219,9 @@ export default async function handler(req, res) {
           const rarity = (meta && meta.rarity ? meta.rarity : "").toUpperCase();
           if (rarity) { byRarity[titleCase(rarity)] = (byRarity[titleCase(rarity)] || 0) + 1; magicPower += MP_BY_RARITY[rarity] || 0; }
         }
-        if (owned.includes("HEGEMONY_ARTIFACT")) magicPower += 16; // Hegemony doubles its own MP
+        if (owned.includes("HEGEMONY_ARTIFACT")) magicPower += 16;
         if (owned.includes("RIFT_PRISM")) magicPower += 11;
-        data = { totalAccessories: owned.length, byRarity, magicPowerEstimate: magicPower, note: "Magic power is an estimate." };
+        data = { totalAccessories: owned.length, byRarity, magicPowerEstimate: magicPower, tip: "Raise Magic Power by owning more accessories and recombobulating them. Run /missing " + who.name + " to see the cheapest MP per coin. (MP shown is an estimate.)" };
       }
     }
     else data = computeStats(member);

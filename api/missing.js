@@ -170,6 +170,7 @@ export default async function handler(req, res) {
       unobtainable,
       totalCost,
       upgradesCount: upgrades.length,
+      tip: "Buy from the top down — those give the most Magic Power per coin. Recombobulating accessories you already own counts too, and is slotted in at its real value.",
     });
   } catch (e) {
     return res.status(502).json({ error: "Couldn't look up missing talismans right now. Please try again." });
