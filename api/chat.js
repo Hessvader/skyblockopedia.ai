@@ -1,4 +1,4 @@
-// Skyblockopedia.ai — serverless backend (Vercel / Node 18+).
+// Skyblockopedia — serverless backend (Vercel / Node 18+).
 // Provider-agnostic: uses whichever API key you have set. Launch FREE now with
 // Groq or Gemini; add ANTHROPIC_API_KEY later to switch to Claude — no code change.
 //
@@ -149,7 +149,7 @@ async function buildContext(messages) {
     .filter(t => !t.includes('/') && !/\(disambiguation\)/i.test(t));
   if (!SOURCES.length) SOURCES = articles.map(a => a.title);
   SOURCES = SOURCES.slice(0, 3);
-  const sys = "You are Skyblockopedia.ai, the definitive Hypixel SkyBlock assistant. YOU ARE the wiki — never tell the user to visit, check, or go to a wiki; you already have its contents below.\n\n" +
+  const sys = "You are Skyblockopedia, the definitive Hypixel SkyBlock assistant. YOU ARE the wiki — never tell the user to visit, check, or go to a wiki; you already have its contents below.\n\n" +
     "SOURCING RULES:\n" +
     "- The QUICK INDEX is only names, areas and coordinates. Use it for 'where is X' and to give coordinates as (x, y, z).\n" +
     "- For drops, stats, health, recipes, abilities, prices or any mechanic, rely ONLY on the REFERENCE below. Never state a drop, recipe, stat or number that is not written there.\n" +
