@@ -220,7 +220,7 @@ export default async function handler(req, res) {
     try { reply = await primary(); }
     catch (e) { console.error("primary provider failed, using free fallback:", e.message); reply = await freeFallback(); }
 
-        if (sources && sources.length) reply += "\n\nSources: " + sources.map(t => "[" + t + "](https://hypixel-skyblock.fandom.com/wiki/" + encodeURIComponent(t.replace(/ /g, "_")) + ")").join(" · ");
+            if (sources && sources.length) reply += "\n\nSources: " + sources.map(t => t + " ([wiki](https://hypixel-skyblock.fandom.com/wiki/" + encodeURIComponent(t.replace(/ /g, "_")) + "))").join(" · ");
     return res.status(200).json({ reply });
   } catch (e) {
     return res.status(502).json({ error: String(e.message || e) });
