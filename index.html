@@ -107,18 +107,19 @@ async function aiAnswer(history){
 
 const scroll=document.getElementById("scroll"),welcome=document.getElementById("welcome");
 const input=document.getElementById("input"),send=document.getElementById("send");const history=[];
+function renderMsg(el,text){el.textContent="";var re=/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,last=0,m;while((m=re.exec(text))){if(m.index>last)el.appendChild(document.createTextNode(text.slice(last,m.index)));var a=document.createElement("a");a.href=m[2];a.textContent=m[1];a.target="_blank";a.rel="noopener";a.style.color="#10a37f";a.style.textDecoration="underline";el.appendChild(a);last=re.lastIndex;}if(last<text.length)el.appendChild(document.createTextNode(text.slice(last)));}
 function addRow(role,text){if(welcome)welcome.style.display="none";
  const row=document.createElement("div");row.className="row "+(role==="user"?"user":"bot");
  const inner=document.createElement("div");inner.className="row-inner";
  const av=document.createElement("div");av.className="avatar";av.textContent=role==="user"?"Y":"S";
- const msg=document.createElement("div");msg.className="msg";msg.textContent=text;
+ const msg=document.createElement("div");msg.className="msg";renderMsg(msg,text);
  inner.appendChild(av);inner.appendChild(msg);row.appendChild(inner);scroll.appendChild(row);scroll.scrollTop=scroll.scrollHeight;return msg;}
 async function submit(text){text=(text||"").trim();if(!text)return;
  addRow("user",text);history.push({role:"user",content:text});
  input.value="";input.style.height="auto";send.disabled=true;
  const typing=addRow("bot","Thinking...");
- try{const reply=await aiAnswer(history);typing.textContent=reply;history.push({role:"assistant",content:reply});}
- catch(e){const fb=offline(history);typing.textContent=fb;history.push({role:"assistant",content:fb});}
+ try{const reply=await aiAnswer(history);renderMsg(typing,reply);history.push({role:"assistant",content:reply});}
+ catch(e){const fb=offline(history);renderMsg(typing,fb);history.push({role:"assistant",content:fb});}
  send.disabled=false;input.focus();scroll.scrollTop=scroll.scrollHeight;}
 send.addEventListener("click",()=>submit(input.value));
 input.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();submit(input.value);}});
