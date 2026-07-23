@@ -10,6 +10,7 @@
 const TO = process.env.CONTACT_TO || "hessvader@gmail.com";
 const DAILY_CAP = 100;
 const PER_IP_CAP = 5;         // max messages per IP per day (bot detector)
+const COOLDOWN_SEC = 600;     // one message per person per 10 minutes
 const MIN_FILL_MS = 2000;     // faster than this = bot
 
 async function redis(cmd) {
@@ -55,6 +56,13 @@ export default async function handler(req, res) {
     const email = String(b.email || "").slice(0, 200);
     if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: "That email looks invalid." });
 
+    // one message per person per 10 minutes
+    const coolKey = "sbc:cool:" + ip;
+    if ((await redis(["SET", coolKey, "1", "NX", "EX", String(COOLDOWN_SEC)])) === null) {
+      const ttl = Number(await redis(["TTL", coolKey])) || COOLDOWN_SEC;
+      const mins = Math.max(1, Math.ceil(ttl / 60));
+      return res.status(429).json({ error: "Please wait about " + mins + " minute" + (mins > 1 ? "s" : "") + " before sending another message." });
+    }
     // per-IP daily cap
     const ipKey = "sbc:ip:" + today + ":" + ip;
     const ipc = Number(await redis(["INCR", ipKey])); await redis(["EXPIRE", ipKey, 172800]);
