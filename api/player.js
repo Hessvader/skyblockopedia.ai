@@ -94,7 +94,7 @@ function computeMinions(profile, member) {
 function computeCollections(member) {
   const coll = member?.collection || {};
   const entries = Object.keys(coll).map((k) => ({ name: titleCase(k), amount: coll[k] })).sort((a, b) => b.amount - a.amount);
-  const tiers = (member?.unlocked_coll_tiers || []).length;
+  const tiers = ((member?.unlocked_coll_tiers) || (member?.player_data?.unlocked_coll_tiers) || []).length;
   return { collectionsWithProgress: entries.length, unlockedTiers: tiers, top: entries.slice(0, 15) };
 }
 
@@ -143,11 +143,6 @@ export default async function handler(req, res) {
 
     const base = { name: who.name, profile: profile.cute_name || null, stat };
     let data = {};
-
-    if (stat === "_debug") {
-      const mk = Object.keys(member);
-      return res.status(200).json({ memberKeys: mk, hasCrafted: Array.isArray(member.crafted_generators), craftedLen: (member.crafted_generators || []).length, playerDataKeys: Object.keys(member.player_data || {}) });
-    }
 
     if (stat === "skills") data = computeSkills(member);
     else if (stat === "slayer" || stat === "slayers") data = computeSlayer(member);
