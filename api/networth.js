@@ -49,7 +49,9 @@ export default async function handler(req, res) {
       if (mr.ok) { const md = await mr.json(); museum = md.members && md.members[who.uuid]; }
     } catch (e) {}
 
-    const { ProfileNetworthCalculator } = await import("skyhelper-networth");
+    const _nwmod = await import("skyhelper-networth");
+    const ProfileNetworthCalculator = _nwmod.ProfileNetworthCalculator || (_nwmod.default && _nwmod.default.ProfileNetworthCalculator);
+    if (!ProfileNetworthCalculator) throw new Error("networth library did not load");
     const calc = new ProfileNetworthCalculator(member, museum, bank);
     const nw = await calc.getNetworth();
 
@@ -69,6 +71,6 @@ export default async function handler(req, res) {
       categories,
     });
   } catch (e) {
-    return res.status(502).json({ error: "Couldn't calculate net worth right now. Please try again." });
+    return res.status(502).json({ error: "Couldn't calculate net worth right now. Please try again.", detail: String((e && e.message) || e).slice(0,300) });
   }
 }
