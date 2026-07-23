@@ -84,11 +84,12 @@ function computeMinions(profile, member) {
   const set = new Set();
   const members = profile.members || {};
   const paths = (m) => [m?.crafted_generators, m?.player_data?.crafted_generators, m?.player_stats?.crafted_generators];
+  const types = new Set();
   for (const uuid of Object.keys(members)) {
-    for (const g of paths(members[uuid])) if (Array.isArray(g)) for (const s of g) set.add(String(s).replace(/_\d+$/, ""));
+    for (const g of paths(members[uuid])) if (Array.isArray(g)) for (const s of g) { set.add(String(s)); types.add(String(s).replace(/_\d+$/, "")); }
   }
-  const unique = set.size;
-  return { uniqueMinions: unique, minionSlots: minionSlots(unique) };
+  const uniqueCrafts = set.size; // unique minion tiers crafted — drives slot count
+  return { uniqueMinions: types.size, craftedTiers: uniqueCrafts, minionSlots: minionSlots(uniqueCrafts) };
 }
 
 function computeCollections(member) {
