@@ -1,6 +1,7 @@
 {
   "functions": {
-    "api/chat.js": { "maxDuration": 30 }
+    "api/chat.js": { "maxDuration": 30 },
+    "api/networth.js": { "maxDuration": 60 }
   },
   "crons": [
     { "path": "/api/flush", "schedule": "5 0 * * *" }

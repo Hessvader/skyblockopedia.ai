@@ -1,1 +1,9 @@
-{ "name": "skyblockopedia", "version": "1.0.0", "type": "module", "private": true }
+{
+  "name": "skyblockopedia",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "skyhelper-networth": "^2.7.5"
+  }
+}
