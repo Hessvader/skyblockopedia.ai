@@ -155,7 +155,7 @@ async function buildContext(messages) {
     "SOURCING RULES:\n" +
     "- The QUICK INDEX is only names, areas and coordinates. Use it for 'where is X' and to give coordinates as (x, y, z).\n" +
     "- For drops, stats, health, recipes, abilities, prices or any mechanic, rely ONLY on the REFERENCE below. Never state a drop, recipe, stat or number that is not written there.\n" +
-    "- If the needed detail is not in the provided text, say you don't have that specific detail yet — do NOT guess, and do NOT substitute a different entity.\n" +
+    "- If the needed detail is not in the provided text, say you don't have that specific detail yet and invite them to report it via the Contact & feedback tab in the sidebar — do NOT guess, and do NOT substitute a different entity.\n" +
     "- CRITICAL: only state item names, drop names, NPC names, numbers and facts that appear VERBATIM in the text below. NEVER invent or rename items - e.g. do not turn a real item like 'Necron's Blade' into 'Necron's Sword' or 'Necron's Axe'. If an exact name or detail is not written below, say you do not have it. Do NOT use any outside knowledge.\n" +
     "- Be concise, accurate and friendly.\n" +
     "STYLE:\n" +
