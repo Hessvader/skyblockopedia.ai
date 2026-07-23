@@ -216,18 +216,19 @@ export default async function handler(req, res) {
 
     const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
     const groqModel = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
-    const freeFallback = () => callOpenAICompatible(groqUrl, EMBEDDED_GROQ, groqModel, messages, sys);
-    async function primary() {
-      if (process.env.ANTHROPIC_API_KEY) return callAnthropic(messages, sys);
-      if (process.env.GROQ_API_KEY) return callOpenAICompatible(groqUrl, process.env.GROQ_API_KEY, groqModel, messages, sys);
-      if (process.env.GEMINI_API_KEY) return callGemini(messages, sys);
-      return freeFallback();
+    // Try each configured provider in order; if one key is bad/quota'd/down, cascade
+    // to the next working one so a single bad key can never take the whole site down.
+    const providers = [];
+    if (process.env.ANTHROPIC_API_KEY) providers.push(() => callAnthropic(messages, sys));
+    if (process.env.GEMINI_API_KEY) providers.push(() => callGemini(messages, sys));
+    if (process.env.GROQ_API_KEY) providers.push(() => callOpenAICompatible(groqUrl, process.env.GROQ_API_KEY, groqModel, messages, sys));
+    if (EMBEDDED_GROQ) providers.push(() => callOpenAICompatible(groqUrl, EMBEDDED_GROQ, groqModel, messages, sys));
+    let reply, lastErr;
+    for (const p of providers) {
+      try { reply = await p(); break; }
+      catch (e) { lastErr = e; console.error("provider failed, trying next:", e.message); }
     }
-    // If a configured provider/key fails (bad key, quota, outage), never error the
-    // user — fall back to the built-in free model so the site always answers.
-    let reply;
-    try { reply = await primary(); }
-    catch (e) { console.error("primary provider failed, using free fallback:", e.message); reply = await freeFallback(); }
+    if (reply === undefined) throw (lastErr || new Error("no AI provider configured"));
 
     if (sources && sources.length) reply += "\n\nSources: " + sources.map(t => t + " ([wiki](https://hypixel-skyblock.fandom.com/wiki/" + encodeURIComponent(t.replace(/ /g, "_")).replace(/\(/g, "%28").replace(/\)/g, "%29") + "))").join(" · ");
     return res.status(200).json({ reply });
